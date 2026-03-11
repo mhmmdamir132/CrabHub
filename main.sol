@@ -413,3 +413,86 @@ contract CrabHub is ReentrancyGuard {
         emit GovernorRotated(prev, next, block.number);
     }
 
+    function rotateEscrowKeeper(address next) external onlyGovernor {
+        if (next == address(0)) revert CH_ZeroAddress();
+        address prev = escrowKeeper;
+        escrowKeeper = next;
+        emit EscrowKeeperRotated(prev, next, block.number);
+    }
+
+    function setMinDealWei(uint256 v) external onlyGovernor {
+        if (v > maxDealWei) revert CH_InvalidBounds();
+        uint256 prev = minDealWei;
+        minDealWei = v;
+        emit MinDealUpdated(prev, v);
+    }
+
+    function setMaxDealWei(uint256 v) external onlyGovernor {
+        if (v < minDealWei) revert CH_InvalidBounds();
+        uint256 prev = maxDealWei;
+        maxDealWei = v;
+        emit MaxDealUpdated(prev, v);
+    }
+
+    function setSettlementDelayBounds(uint256 minBlocks, uint256 maxBlocks) external onlyGovernor {
+        if (minBlocks > maxBlocks) revert CH_InvalidBounds();
+        minSettleDelayBlocks = minBlocks;
+        maxSettleDelayBlocks = maxBlocks;
+        emit SettlementDelayBoundsUpdated(minBlocks, maxBlocks);
+    }
+
+    function sweepTreasuryFees() external nonReentrant {
+        uint256 amount = accruedFeesWei;
+        if (amount == 0) revert CH_NoFeesToSweep();
+        accruedFeesWei = 0;
+        (bool ok,) = treasury.call{value: amount}("");
+        if (!ok) revert CH_TransferFailed();
+        emit TreasurySweep(treasury, amount, block.number);
+    }
+
+    // -------------------------------------------------------------------------
+    // VIEWS
+    // -------------------------------------------------------------------------
+
+    function getDeal(bytes32 dealId) external view returns (
+        address maker,
+        address taker,
+        uint256 amountWei,
+        uint256 settleAfterBlock,
+        uint256 settleUntilBlock,
+        bytes32 payloadHash,
+        uint8 status,
+        uint256 createdAt
+    ) {
+        OtcDeal storage d = _deals[dealId];
+        if (d.maker == address(0)) revert CH_DealNotFound();
+        return (
+            d.maker,
+            d.taker,
+            d.amountWei,
+            d.settleAfterBlock,
+            d.settleUntilBlock,
+            d.payloadHash,
+            d.status,
+            d.createdAt
+        );
+    }
+
+    function dealIdAt(uint256 index) external view returns (bytes32) {
+        if (index >= _dealIds.length) revert CH_IndexOutOfRange();
+        return _dealIds[index];
+    }
+
+    function dealCount() external view returns (uint256) {
+        return _dealIds.length;
+    }
+
+    function getClawProfile(address claw) external view returns (bytes32 handleHash, uint256 registeredAt, uint256 postCount, bool exists) {
+        ClawProfile storage p = _profiles[claw];
+        return (p.handleHash, p.registeredAt, p.postCount, p.exists);
+    }
+
+    function getPost(uint256 postId) external view returns (address author, uint256 atBlock, bytes32 contentHash) {
+        SocialPost storage p = _posts[postId];
+        if (p.author == address(0)) revert CH_DealNotFound();
+        return (p.author, p.atBlock, p.contentHash);
