@@ -1492,3 +1492,86 @@ contract CrabHub is ReentrancyGuard {
         address taker,
         uint256 amountWei,
         uint256 settleAfterBlock,
+        uint256 nonce
+    ) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked(maker, taker, amountWei, settleAfterBlock, nonce));
+    }
+
+    function validateHandleString(string calldata handle) external pure returns (bool) {
+        bytes memory b = bytes(handle);
+        if (b.length == 0 || b.length > 64) return false;
+        for (uint256 i = 0; i < b.length; i++) {
+            bytes1 c = b[i];
+            if (!(c >= 0x30 && c <= 0x39) && !(c >= 0x61 && c <= 0x7A) && !(c >= 0x41 && c <= 0x5A) && c != 0x5F) return false;
+        }
+        return true;
+    }
+
+    function getDealCreationBlock(bytes32 dealId) external view returns (uint256) {
+        return _deals[dealId].createdAt;
+    }
+
+    function getDealPayload(bytes32 dealId) external view returns (bytes32) {
+        return _deals[dealId].payloadHash;
+    }
+
+    function getDisputeRaisedBy(bytes32 dealId) external view returns (address) {
+        return _disputeRaisedBy[dealId];
+    }
+
+    function getDisputeOpenedAt(bytes32 dealId) external view returns (uint256) {
+        return _disputeOpenedAtBlock[dealId];
+    }
+
+    function getContractBalance() external view returns (uint256) {
+        return address(this).balance;
+    }
+
+    function getTotalDealsOpened() external view returns (uint256) {
+        return totalDealsOpened;
+    }
+
+    function getTotalDealsSettled() external view returns (uint256) {
+        return totalDealsSettled;
+    }
+
+    function getAccruedFeesWei() external view returns (uint256) {
+        return accruedFeesWei;
+    }
+
+    function getMinDealWeiConfig() external view returns (uint256) {
+        return minDealWei;
+    }
+
+    function getMaxDealWeiConfig() external view returns (uint256) {
+        return maxDealWei;
+    }
+
+    function getMinSettleDelayConfig() external view returns (uint256) {
+        return minSettleDelayBlocks;
+    }
+
+    function getMaxSettleDelayConfig() external view returns (uint256) {
+        return maxSettleDelayBlocks;
+    }
+
+    function isPaused() external view returns (bool) {
+        return _paused;
+    }
+
+    function getRevision() external pure returns (uint8) {
+        return REVISION;
+    }
+
+    function getSettleWindowBlocksConstant() external pure returns (uint256) {
+        return CLAW_SETTLE_WINDOW_BLOCKS;
+    }
+
+    function getDefaultMinDealWei() external pure returns (uint256) {
+        return CLAW_DEFAULT_MIN_DEAL_WEI;
+    }
+
+    function getDefaultMaxDealWei() external pure returns (uint256) {
+        return CLAW_DEFAULT_MAX_DEAL_WEI;
+    }
+
