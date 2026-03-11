@@ -579,3 +579,86 @@ contract CrabHub is ReentrancyGuard {
     ) {
         uint256 n = dealIds.length;
         if (n > CLAW_VIEW_BATCH) n = CLAW_VIEW_BATCH;
+        makers = new address[](n);
+        takers = new address[](n);
+        amounts = new uint256[](n);
+        settleAfterBlocks = new uint256[](n);
+        statuses = new uint8[](n);
+        for (uint256 i = 0; i < n; i++) {
+            OtcDeal storage d = _deals[dealIds[i]];
+            makers[i] = d.maker;
+            takers[i] = d.taker;
+            amounts[i] = d.amountWei;
+            settleAfterBlocks[i] = d.settleAfterBlock;
+            statuses[i] = d.status;
+        }
+    }
+
+    event ClawOtcSettleExtended(bytes32 indexed dealId, uint256 previousSettleAfter, uint256 newSettleAfter, uint256 atBlock);
+
+    function extendOtcSettleDelay(bytes32 dealId, uint256 extraBlocks) external onlyEscrowKeeper {
+        OtcDeal storage d = _deals[dealId];
+        if (d.maker == address(0)) revert CH_DealNotFound();
+        if (d.status != STATUS_OPEN) revert CH_DealNotOpen();
+        if (extraBlocks > CLAW_OTC_EXTEND_SETTLE_MAX) revert CH_InvalidSettleDelay();
+        uint256 prev = d.settleAfterBlock;
+        d.settleAfterBlock = prev + extraBlocks;
+        d.settleUntilBlock = d.settleAfterBlock + 1728;
+        emit ClawOtcSettleExtended(dealId, prev, d.settleAfterBlock, block.number);
+    }
+
+    function resolveDisputedDeal(bytes32 dealId, uint256 makerAmount, uint256 takerAmount) external onlyEscrowKeeper nonReentrant {
+        OtcDeal storage d = _deals[dealId];
+        if (d.maker == address(0)) revert CH_DealNotFound();
+        if (d.status != STATUS_DISPUTED) revert CH_DealNotOpen();
+        if (block.number < _disputeOpenedAtBlock[dealId] + CLAW_DISPUTE_WINDOW_BLOCKS) revert CH_DealNotReadyToSettle();
+        if (makerAmount + takerAmount != d.amountWei) revert CH_InvalidBounds();
+        d.status = STATUS_SETTLED;
+        totalDealsSettled++;
+        (bool ok1,) = d.maker.call{value: makerAmount}("");
+        if (!ok1) revert CH_TransferFailed();
+        (bool ok2,) = d.taker.call{value: takerAmount}("");
+        if (!ok2) revert CH_TransferFailed();
+        emit ClawOtcSettled(dealId, d.maker, d.taker, makerAmount, takerAmount, block.number);
+    }
+
+    function getDealFull(bytes32 dealId) external view returns (
+        address maker,
+        address taker,
+        uint256 amountWei,
+        uint256 settleAfterBlock,
+        uint256 settleUntilBlock,
+        bytes32 payloadHash,
+        uint8 status,
+        uint256 createdAt,
+        bool isDisputed,
+        address disputeRaisedBy
+    ) {
+        OtcDeal storage d = _deals[dealId];
+        if (d.maker == address(0)) revert CH_DealNotFound();
+        return (
+            d.maker,
+            d.taker,
+            d.amountWei,
+            d.settleAfterBlock,
+            d.settleUntilBlock,
+            d.payloadHash,
+            d.status,
+            d.createdAt,
+            d.status == STATUS_DISPUTED,
+            _disputeRaisedBy[dealId]
+        );
+    }
+
+    function getClawDealCountThisEpoch(address claw) external view returns (uint256) {
+        uint256 epochIdx = (block.number - genesisBlock) / CLAW_EPOCH_BLOCKS;
+        if (_lastEpochIndexByClaw[claw] != epochIdx) return 0;
+        return _dealsOpenedThisEpoch[claw];
+    }
+
+    function getDisputeInfo(bytes32 dealId) external view returns (uint256 openedAtBlock, address raisedBy) {
+        return (_disputeOpenedAtBlock[dealId], _disputeRaisedBy[dealId]);
+    }
+
+    function canSettle(bytes32 dealId) external view returns (bool) {
+        OtcDeal storage d = _deals[dealId];
