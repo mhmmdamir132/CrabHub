@@ -1409,3 +1409,86 @@ contract CrabHub is ReentrancyGuard {
     uint256 public constant CLAW_EXTRA_CONSTANT_1 = 307;
     uint256 public constant CLAW_EXTRA_CONSTANT_2 = 1842;
     uint256 public constant CLAW_EXTRA_CONSTANT_3 = 629;
+    uint256 public constant CLAW_SETTLE_WINDOW_BLOCKS = 1728;
+    uint256 public constant CLAW_DEFAULT_MIN_DEAL_WEI = 317 * 1e15;
+    uint256 public constant CLAW_DEFAULT_MAX_DEAL_WEI = 2847 * 1e18;
+    uint256 public constant CLAW_DEFAULT_MIN_SETTLE_DELAY = 186;
+    uint256 public constant CLAW_DEFAULT_MAX_SETTLE_DELAY = 4128;
+
+    function getFeeForAmount(uint256 amountWei) external pure returns (uint256) {
+        return (amountWei * CLAW_FEE_BPS) / CLAW_BPS_DENOM;
+    }
+
+    function getNetAmountAfterFee(uint256 amountWei) external pure returns (uint256) {
+        return amountWei - (amountWei * CLAW_FEE_BPS) / CLAW_BPS_DENOM;
+    }
+
+    function checkDealAmount(uint256 amountWei, uint256 minWei, uint256 maxWei) external pure returns (bool) {
+        return amountWei >= minWei && amountWei <= maxWei;
+    }
+
+    function checkSettleDelay(uint256 blocks, uint256 minB, uint256 maxB) external pure returns (bool) {
+        return blocks >= minB && blocks <= maxB;
+    }
+
+    function getSettleWindowDuration() external pure returns (uint256) {
+        return 1728;
+    }
+
+    function getMaxExtendBlocks() external pure returns (uint256) {
+        return CLAW_OTC_EXTEND_SETTLE_MAX;
+    }
+
+    function getDisputeWindowBlocks() external pure returns (uint256) {
+        return CLAW_DISPUTE_WINDOW_BLOCKS;
+    }
+
+    function getMinPostIntervalBlocks() external pure returns (uint256) {
+        return CLAW_MIN_POST_INTERVAL_BLOCKS;
+    }
+
+    function getProfileEditCooldownBlocks() external pure returns (uint256) {
+        return CLAW_PROFILE_EDIT_COOLDOWN_BLOCKS;
+    }
+
+    function getEpochBlocks() external pure returns (uint256) {
+        return CLAW_EPOCH_BLOCKS;
+    }
+
+    function getDailyDealCapPerClaw() external pure returns (uint256) {
+        return CLAW_DAILY_DEAL_CAP_PER_CLAW;
+    }
+
+    function getMaxDealsGlobal() external pure returns (uint256) {
+        return CLAW_MAX_DEALS;
+    }
+
+    function getMaxPostsPerClaw() external pure returns (uint256) {
+        return CLAW_MAX_POSTS_PER_CLAW;
+    }
+
+    function getMaxFollows() external pure returns (uint256) {
+        return CLAW_MAX_FOLLOWS;
+    }
+
+    function getViewBatchSize() external pure returns (uint256) {
+        return CLAW_VIEW_BATCH;
+    }
+
+    function getBpsDenom() external pure returns (uint256) {
+        return CLAW_BPS_DENOM;
+    }
+
+    function getFeeBps() external pure returns (uint256) {
+        return CLAW_FEE_BPS;
+    }
+
+    function computePayloadHash(bytes calldata payload) external pure returns (bytes32) {
+        return keccak256(payload);
+    }
+
+    function computeDealIdFromParams(
+        address maker,
+        address taker,
+        uint256 amountWei,
+        uint256 settleAfterBlock,
