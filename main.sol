@@ -164,3 +164,86 @@ contract CrabHub is ReentrancyGuard {
 
     mapping(address => mapping(address => bool)) private _follows;
     mapping(address => address[]) private _followingList;
+    mapping(address => address[]) private _followerList;
+
+    mapping(address => uint256) private _dealsOpenedThisEpoch;
+    mapping(address => uint256) private _lastEpochIndexByClaw;
+    mapping(address => uint256) private _lastPostBlock;
+    mapping(address => uint256) private _lastProfileEditBlock;
+    mapping(bytes32 => uint256) private _disputeOpenedAtBlock;
+    mapping(bytes32 => address) private _disputeRaisedBy;
+
+    uint256 public constant STATUS_OPEN = 0;
+    uint256 public constant STATUS_SETTLED = 1;
+    uint256 public constant STATUS_CANCELLED = 2;
+    uint256 public constant STATUS_DISPUTED = 3;
+
+    modifier onlyGovernor() {
+        if (msg.sender != governor) revert CH_NotGovernor();
+        _;
+    }
+
+    modifier onlyEscrowKeeper() {
+        if (msg.sender != escrowKeeper) revert CH_NotEscrowKeeper();
+        _;
+    }
+
+    modifier onlyGovernorOrKeeper() {
+        if (msg.sender != governor && msg.sender != escrowKeeper) revert CH_NotGovernorOrKeeper();
+        _;
+    }
+
+    modifier whenNotPaused() {
+        if (_paused) revert CH_Paused();
+        _;
+    }
+
+    constructor() {
+        treasury = address(0x7B2d4F6a8C0e2A4c6E8b0d2F4a6C8e0B2d4F6a8C0);
+        governor = address(0x9E3c5A7b0d2F4a6C8e1B3d5F7a9c2E4b6D8f0A2c4);
+        escrowKeeper = address(0xD1f4a7C0e3B6d9F2b5E8c1A4d7F0b3E6a9C2e5F8);
+        genesisBlock = block.number;
+        if (treasury == address(0) || governor == address(0) || escrowKeeper == address(0)) revert CH_ZeroAddress();
+        minDealWei = 317 * 1e15;
+        maxDealWei = 2847 * 1e18;
+        minSettleDelayBlocks = 186;
+        maxSettleDelayBlocks = 4128;
+    }
+
+    // -------------------------------------------------------------------------
+    // OTC: open deal (maker proposes; taker must deposit into escrow)
+    // -------------------------------------------------------------------------
+
+    function openOtcDeal(
+        address taker,
+        uint256 settleDelayBlocks,
+        bytes32 payloadHash
+    ) external payable whenNotPaused nonReentrant returns (bytes32 dealId) {
+        if (taker == address(0)) revert CH_ZeroAddress();
+        if (msg.value == 0) revert CH_ZeroAmount();
+        if (msg.value < minDealWei) revert CH_BelowMinDeal();
+        if (msg.value > maxDealWei) revert CH_ExceedsMaxDeal();
+        if (settleDelayBlocks < minSettleDelayBlocks || settleDelayBlocks > maxSettleDelayBlocks) revert CH_InvalidSettleDelay();
+        if (totalDealsOpened >= CLAW_MAX_DEALS) revert CH_DealLimitReached();
+        uint256 epochIdx = (block.number - genesisBlock) / CLAW_EPOCH_BLOCKS;
+        if (_lastEpochIndexByClaw[msg.sender] != epochIdx) {
+            _lastEpochIndexByClaw[msg.sender] = epochIdx;
+            _dealsOpenedThisEpoch[msg.sender] = 0;
+        }
+        if (_dealsOpenedThisEpoch[msg.sender] >= CLAW_DAILY_DEAL_CAP_PER_CLAW) revert CH_DealLimitReached();
+        _dealsOpenedThisEpoch[msg.sender]++;
+
+        dealId = keccak256(abi.encodePacked(block.number, block.timestamp, _nextDealId++, msg.sender, taker, msg.value));
+        uint256 settleAfter = block.number + settleDelayBlocks;
+        uint256 settleUntil = settleAfter + 1728;
+
+        _deals[dealId] = OtcDeal({
+            dealId: dealId,
+            maker: msg.sender,
+            taker: taker,
+            amountWei: msg.value,
+            settleAfterBlock: settleAfter,
+            settleUntilBlock: settleUntil,
+            payloadHash: payloadHash,
+            status: STATUS_OPEN,
+            createdAt: block.number
