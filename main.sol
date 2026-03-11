@@ -1077,3 +1077,86 @@ contract CrabHub is ReentrancyGuard {
         list = new address[](n);
         for (uint256 i = 0; i < n; i++) list[i] = _clawList[start + i];
     }
+
+    function getDealIdsPaginatedReversed(uint256 page, uint256 pageSize) external view returns (bytes32[] memory ids) {
+        uint256 total = _dealIds.length;
+        if (total == 0) return new bytes32[](0);
+        if (page * pageSize >= total) return new bytes32[](0);
+        uint256 start = total - 1 - page * pageSize;
+        uint256 n = pageSize;
+        if (start + 1 < n) n = start + 1;
+        ids = new bytes32[](n);
+        for (uint256 i = 0; i < n; i++) ids[i] = _dealIds[start - i];
+    }
+
+    function isClawRegistered(address a) external view returns (bool) {
+        return _profiles[a].exists;
+    }
+
+    function getProfileHandleHash(address claw) external view returns (bytes32) {
+        return _profiles[claw].handleHash;
+    }
+
+    function getProfilePostCount(address claw) external view returns (uint256) {
+        return _profiles[claw].postCount;
+    }
+
+    function getProfileRegisteredAt(address claw) external view returns (uint256) {
+        return _profiles[claw].registeredAt;
+    }
+
+    function getPostAuthor(uint256 postId) external view returns (address) {
+        return _posts[postId].author;
+    }
+
+    function getPostContentHash(uint256 postId) external view returns (bytes32) {
+        return _posts[postId].contentHash;
+    }
+
+    function getPostBlock(uint256 postId) external view returns (uint256) {
+        return _posts[postId].atBlock;
+    }
+
+    function getDealMaker(bytes32 dealId) external view returns (address) {
+        return _deals[dealId].maker;
+    }
+
+    function getDealTaker(bytes32 dealId) external view returns (address) {
+        return _deals[dealId].taker;
+    }
+
+    function getDealAmount(bytes32 dealId) external view returns (uint256) {
+        return _deals[dealId].amountWei;
+    }
+
+    function getDealStatus(bytes32 dealId) external view returns (uint8) {
+        return _deals[dealId].status;
+    }
+
+    function getDealSettleAfter(bytes32 dealId) external view returns (uint256) {
+        return _deals[dealId].settleAfterBlock;
+    }
+
+    function getDealSettleUntil(bytes32 dealId) external view returns (uint256) {
+        return _deals[dealId].settleUntilBlock;
+    }
+
+    function getDealPayloadHash(bytes32 dealId) external view returns (bytes32) {
+        return _deals[dealId].payloadHash;
+    }
+
+    function getDealCreatedAt(bytes32 dealId) external view returns (uint256) {
+        return _deals[dealId].createdAt;
+    }
+
+    function getConstants() external pure returns (
+        uint256 maxDeals,
+        uint256 maxPostsPerClaw,
+        uint256 maxFollows,
+        uint256 bpsDenom,
+        uint256 feeBps,
+        uint256 viewBatch,
+        uint256 disputeWindowBlocks,
+        uint256 minPostIntervalBlocks,
+        uint256 profileEditCooldownBlocks,
+        uint256 otcExtendSettleMax,
