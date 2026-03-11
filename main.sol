@@ -247,3 +247,86 @@ contract CrabHub is ReentrancyGuard {
             payloadHash: payloadHash,
             status: STATUS_OPEN,
             createdAt: block.number
+        });
+        _dealIds.push(dealId);
+        _makerDeals[msg.sender].push(dealId);
+        _takerDeals[taker].push(dealId);
+        totalDealsOpened++;
+
+        uint256 fee = (msg.value * CLAW_FEE_BPS) / CLAW_BPS_DENOM;
+        if (fee > 0) accruedFeesWei += fee;
+
+        emit ClawOtcEscrowDeposited(dealId, msg.value, block.number);
+        emit ClawOtcOpened(dealId, msg.sender, taker, msg.value, settleAfter, payloadHash, block.number);
+        return dealId;
+    }
+
+    function settleOtcDeal(
+        bytes32 dealId,
+        uint256 makerAmount,
+        uint256 takerAmount
+    ) external onlyEscrowKeeper nonReentrant {
+        OtcDeal storage d = _deals[dealId];
+        if (d.maker == address(0)) revert CH_DealNotFound();
+        if (d.status != STATUS_OPEN) revert CH_DealNotOpen();
+        if (block.number < d.settleAfterBlock) revert CH_DealNotReadyToSettle();
+        if (block.number > d.settleUntilBlock) revert CH_DealSettleWindowExpired();
+        if (makerAmount + takerAmount != d.amountWei) revert CH_InvalidBounds();
+
+        d.status = STATUS_SETTLED;
+        totalDealsSettled++;
+
+        (bool ok1,) = d.maker.call{value: makerAmount}("");
+        if (!ok1) revert CH_TransferFailed();
+        (bool ok2,) = d.taker.call{value: takerAmount}("");
+        if (!ok2) revert CH_TransferFailed();
+
+        emit ClawOtcSettled(dealId, d.maker, d.taker, makerAmount, takerAmount, block.number);
+    }
+
+    function cancelOtcDeal(bytes32 dealId) external nonReentrant {
+        OtcDeal storage d = _deals[dealId];
+        if (d.maker == address(0)) revert CH_DealNotFound();
+        if (d.status != STATUS_OPEN) revert CH_DealNotOpen();
+        if (msg.sender != d.maker && msg.sender != governor) revert CH_NotGovernor();
+
+        d.status = STATUS_CANCELLED;
+        (bool ok,) = d.maker.call{value: d.amountWei}("");
+        if (!ok) revert CH_TransferFailed();
+
+        emit ClawOtcCancelled(dealId, msg.sender, block.number);
+    }
+
+    function disputeOtcDeal(bytes32 dealId) external {
+        OtcDeal storage d = _deals[dealId];
+        if (d.maker == address(0)) revert CH_DealNotFound();
+        if (d.status != STATUS_OPEN) revert CH_DealNotOpen();
+        if (msg.sender != d.maker && msg.sender != d.taker) revert CH_DealNotFound();
+
+        d.status = STATUS_DISPUTED;
+        _disputeOpenedAtBlock[dealId] = block.number;
+        _disputeRaisedBy[dealId] = msg.sender;
+        emit ClawOtcDisputed(dealId, msg.sender, block.number);
+    }
+
+    // -------------------------------------------------------------------------
+    // SOCIAL: claw profile
+    // -------------------------------------------------------------------------
+
+    function registerClawProfile(bytes32 handleHash) external whenNotPaused {
+        if (_profiles[msg.sender].exists) revert CH_HandleAlreadyTaken();
+        for (uint256 i = 0; i < _clawList.length; i++) {
+            if (_profiles[_clawList[i]].handleHash == handleHash) revert CH_HandleAlreadyTaken();
+        }
+        _profiles[msg.sender] = ClawProfile({
+            handleHash: handleHash,
+            registeredAt: block.number,
+            postCount: 0,
+            exists: true
+        });
+        _clawList.push(msg.sender);
+        emit ClawProfileRegistered(msg.sender, handleHash, block.number);
+    }
+
+    function updateClawProfile(bytes32 handleHash) external {
+        if (!_profiles[msg.sender].exists) revert CH_ProfileNotFound();
