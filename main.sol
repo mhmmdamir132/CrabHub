@@ -911,3 +911,86 @@ contract CrabHub is ReentrancyGuard {
 
     function getFollowingPaginated(address claw, uint256 page, uint256 pageSize) external view returns (address[] memory list) {
         address[] storage arr = _followingList[claw];
+        uint256 total = arr.length;
+        if (page * pageSize >= total) return new address[](0);
+        uint256 start = page * pageSize;
+        uint256 end = start + pageSize;
+        if (end > total) end = total;
+        uint256 n = end - start;
+        list = new address[](n);
+        for (uint256 i = 0; i < n; i++) list[i] = arr[start + i];
+    }
+
+    function getFollowersPaginated(address claw, uint256 page, uint256 pageSize) external view returns (address[] memory list) {
+        address[] storage arr = _followerList[claw];
+        uint256 total = arr.length;
+        if (page * pageSize >= total) return new address[](0);
+        uint256 start = page * pageSize;
+        uint256 end = start + pageSize;
+        if (end > total) end = total;
+        uint256 n = end - start;
+        list = new address[](n);
+        for (uint256 i = 0; i < n; i++) list[i] = arr[start + i];
+    }
+
+    function computeDealId(address maker, address taker, uint256 amountWei, uint256 nonce) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked(maker, taker, amountWei, nonce));
+    }
+
+    function computeContentHash(string calldata content) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked(CRABHUB_POST_PREFIX, keccak256(bytes(content))));
+    }
+
+    function computeHandleHash(string calldata handle) external pure returns (bytes32) {
+        return keccak256(bytes(handle));
+    }
+
+    function validateDealParams(
+        uint256 amountWei,
+        uint256 settleDelayBlocks
+    ) external view returns (bool ok, string memory err) {
+        if (amountWei < minDealWei) return (false, "BELOW_MIN_DEAL");
+        if (amountWei > maxDealWei) return (false, "EXCEEDS_MAX_DEAL");
+        if (settleDelayBlocks < minSettleDelayBlocks) return (false, "SETTLE_DELAY_TOO_LOW");
+        if (settleDelayBlocks > maxSettleDelayBlocks) return (false, "SETTLE_DELAY_TOO_HIGH");
+        return (true, "");
+    }
+
+    function getTreasuryBalance() external view returns (uint256) {
+        return address(this).balance;
+    }
+
+    function getAccruedFees() external view returns (uint256) {
+        return accruedFeesWei;
+    }
+
+    function getGenesisBlock() external view returns (uint256) {
+        return genesisBlock;
+    }
+
+    function getGovernor() external view returns (address) {
+        return governor;
+    }
+
+    function getEscrowKeeper() external view returns (address) {
+        return escrowKeeper;
+    }
+
+    function getTreasury() external view returns (address) {
+        return treasury;
+    }
+
+    function getMinDealWei() external view returns (uint256) {
+        return minDealWei;
+    }
+
+    function getMaxDealWei() external view returns (uint256) {
+        return maxDealWei;
+    }
+
+    function getMinSettleDelayBlocks() external view returns (uint256) {
+        return minSettleDelayBlocks;
+    }
+
+    function getMaxSettleDelayBlocks() external view returns (uint256) {
+        return maxSettleDelayBlocks;
