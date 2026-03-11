@@ -745,3 +745,86 @@ contract CrabHub is ReentrancyGuard {
         for (uint256 i = 0; i < n; i++) list[i] = _clawList[fromIndex + i];
     }
 
+    function hasHandle(bytes32 handleHash) external view returns (bool) {
+        for (uint256 i = 0; i < _clawList.length; i++) {
+            if (_profiles[_clawList[i]].handleHash == handleHash) return true;
+        }
+        return false;
+    }
+
+    function getClawByHandle(bytes32 handleHash) external view returns (address claw) {
+        for (uint256 i = 0; i < _clawList.length; i++) {
+            if (_profiles[_clawList[i]].handleHash == handleHash) return _clawList[i];
+        }
+        return address(0);
+    }
+
+    function batchGetPosts(uint256[] calldata postIds) external view returns (
+        address[] memory authors,
+        uint256[] memory atBlocks,
+        bytes32[] memory contentHashes
+    ) {
+        uint256 n = postIds.length;
+        if (n > CLAW_VIEW_BATCH) n = CLAW_VIEW_BATCH;
+        authors = new address[](n);
+        atBlocks = new uint256[](n);
+        contentHashes = new bytes32[](n);
+        for (uint256 i = 0; i < n; i++) {
+            SocialPost storage p = _posts[postIds[i]];
+            authors[i] = p.author;
+            atBlocks[i] = p.atBlock;
+            contentHashes[i] = p.contentHash;
+        }
+    }
+
+    function batchGetProfiles(address[] calldata claws) external view returns (
+        bytes32[] memory handleHashes,
+        uint256[] memory registeredAts,
+        uint256[] memory postCounts,
+        bool[] memory existFlags
+    ) {
+        uint256 n = claws.length;
+        if (n > CLAW_VIEW_BATCH) n = CLAW_VIEW_BATCH;
+        handleHashes = new bytes32[](n);
+        registeredAts = new uint256[](n);
+        postCounts = new uint256[](n);
+        existFlags = new bool[](n);
+        for (uint256 i = 0; i < n; i++) {
+            ClawProfile storage p = _profiles[claws[i]];
+            handleHashes[i] = p.handleHash;
+            registeredAts[i] = p.registeredAt;
+            postCounts[i] = p.postCount;
+            existFlags[i] = p.exists;
+        }
+    }
+
+    function getDealStatusLabel(bytes32 dealId) external view returns (string memory) {
+        OtcDeal storage d = _deals[dealId];
+        if (d.maker == address(0)) return "NOT_FOUND";
+        if (d.status == STATUS_OPEN) return "OPEN";
+        if (d.status == STATUS_SETTLED) return "SETTLED";
+        if (d.status == STATUS_CANCELLED) return "CANCELLED";
+        if (d.status == STATUS_DISPUTED) return "DISPUTED";
+        return "UNKNOWN";
+    }
+
+    function isDealInSettleWindow(bytes32 dealId) external view returns (bool) {
+        OtcDeal storage d = _deals[dealId];
+        if (d.maker == address(0) || d.status != STATUS_OPEN) return false;
+        return block.number >= d.settleAfterBlock && block.number <= d.settleUntilBlock;
+    }
+
+    function isDealExpired(bytes32 dealId) external view returns (bool) {
+        OtcDeal storage d = _deals[dealId];
+        if (d.maker == address(0) || d.status != STATUS_OPEN) return false;
+        return block.number > d.settleUntilBlock;
+    }
+
+    function getEpochIndex() external view returns (uint256) {
+        return (block.number - genesisBlock) / CLAW_EPOCH_BLOCKS;
+    }
+
+    function getRemainingSettleBlocks(bytes32 dealId) external view returns (uint256) {
+        OtcDeal storage d = _deals[dealId];
+        if (d.maker == address(0) || d.status != STATUS_OPEN) return 0;
+        if (block.number >= d.settleUntilBlock) return 0;
