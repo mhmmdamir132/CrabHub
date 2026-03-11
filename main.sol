@@ -81,3 +81,86 @@ contract CrabHub is ReentrancyGuard {
     // -------------------------------------------------------------------------
     // CONSTANTS (unique names)
     // -------------------------------------------------------------------------
+
+    uint8 public constant REVISION = 1;
+    uint256 public constant CLAW_MAX_DEALS = 384;
+    uint256 public constant CLAW_MAX_POSTS_PER_CLAW = 256;
+    uint256 public constant CLAW_MAX_FOLLOWS = 512;
+    uint256 public constant CLAW_BPS_DENOM = 10_000;
+    uint256 public constant CLAW_FEE_BPS = 18;
+    uint256 public constant CLAW_VIEW_BATCH = 32;
+    uint256 public constant CLAW_DISPUTE_WINDOW_BLOCKS = 432;
+    uint256 public constant CLAW_MIN_POST_INTERVAL_BLOCKS = 12;
+    uint256 public constant CLAW_PROFILE_EDIT_COOLDOWN_BLOCKS = 96;
+    uint256 public constant CLAW_OTC_EXTEND_SETTLE_MAX = 864;
+    bytes32 public constant CRABHUB_DOMAIN = keccak256("CrabHub.Claw.OTC.Social.v1");
+    bytes32 public constant CRABHUB_SALT_A = 0x8c2e4f6a0b3d5e7f9a1c4e6b8d0f2a5c7e9b1d4f6a8c0e3b5d7f9a2c4e6b8d0f2;
+    bytes32 public constant CRABHUB_SALT_B = 0x1f3a5c7e9b0d2f4a6c8e0b2d4f6a8c0e2b4d6f8a0c2e4f6b8d0a2c4e6f8b0d2a4;
+    bytes32 public constant CRABHUB_POST_PREFIX = keccak256("CrabHub.Claw.Post");
+    bytes32 public constant CRABHUB_FOLLOW_PREFIX = keccak256("CrabHub.Claw.Follow");
+    uint256 public constant CLAW_DAILY_DEAL_CAP_PER_CLAW = 12;
+    uint256 public constant CLAW_EPOCH_BLOCKS = 7200;
+
+    // -------------------------------------------------------------------------
+    // IMMUTABLE (no readonly)
+    // -------------------------------------------------------------------------
+
+    address public immutable treasury;
+    address public governor;
+    address public escrowKeeper;
+    uint256 public immutable genesisBlock;
+
+    // -------------------------------------------------------------------------
+    // STORAGE
+    // -------------------------------------------------------------------------
+
+    bool private _paused;
+    uint256 private _nextDealId;
+    uint256 public minDealWei;
+    uint256 public maxDealWei;
+    uint256 public minSettleDelayBlocks;
+    uint256 public maxSettleDelayBlocks;
+    uint256 public totalDealsOpened;
+    uint256 public totalDealsSettled;
+    uint256 public accruedFeesWei;
+
+    struct OtcDeal {
+        bytes32 dealId;
+        address maker;
+        address taker;
+        uint256 amountWei;
+        uint256 settleAfterBlock;
+        uint256 settleUntilBlock;
+        bytes32 payloadHash;
+        uint8 status; // 0 open, 1 settled, 2 cancelled, 3 disputed
+        uint256 createdAt;
+    }
+
+    mapping(bytes32 => OtcDeal) private _deals;
+    bytes32[] private _dealIds;
+    mapping(address => bytes32[]) private _makerDeals;
+    mapping(address => bytes32[]) private _takerDeals;
+
+    struct ClawProfile {
+        bytes32 handleHash;
+        uint256 registeredAt;
+        uint256 postCount;
+        bool exists;
+    }
+
+    mapping(address => ClawProfile) private _profiles;
+    address[] private _clawList;
+
+    struct SocialPost {
+        address author;
+        uint256 postId;
+        bytes32 contentHash;
+        uint256 atBlock;
+    }
+
+    mapping(uint256 => SocialPost) private _posts;
+    uint256 private _nextPostId;
+    mapping(address => uint256[]) private _authorPostIds;
+
+    mapping(address => mapping(address => bool)) private _follows;
+    mapping(address => address[]) private _followingList;
