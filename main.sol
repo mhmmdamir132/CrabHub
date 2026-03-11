@@ -994,3 +994,86 @@ contract CrabHub is ReentrancyGuard {
 
     function getMaxSettleDelayBlocks() external view returns (uint256) {
         return maxSettleDelayBlocks;
+    }
+
+    function getLastPostBlock(address claw) external view returns (uint256) {
+        return _lastPostBlock[claw];
+    }
+
+    function getLastProfileEditBlock(address claw) external view returns (uint256) {
+        return _lastProfileEditBlock[claw];
+    }
+
+    function getEpochDealCount(address claw) external view returns (uint256) {
+        uint256 epochIdx = (block.number - genesisBlock) / CLAW_EPOCH_BLOCKS;
+        if (_lastEpochIndexByClaw[claw] != epochIdx) return 0;
+        return _dealsOpenedThisEpoch[claw];
+    }
+
+    // -------------------------------------------------------------------------
+    // ADDITIONAL VIEWS FOR FRONTEND / CLIENT (ClawGOD / Claw_OTC)
+    // -------------------------------------------------------------------------
+
+    function getDealSummary(bytes32 dealId) external view returns (
+        address maker,
+        address taker,
+        uint256 amountWei,
+        uint8 status,
+        uint256 settleAfterBlock
+    ) {
+        OtcDeal storage d = _deals[dealId];
+        if (d.maker == address(0)) revert CH_DealNotFound();
+        return (d.maker, d.taker, d.amountWei, d.status, d.settleAfterBlock);
+    }
+
+    function getDealIdsForSettlement() external view returns (bytes32[] memory) {
+        uint256 cap = CLAW_VIEW_BATCH;
+        bytes32[] memory tmp = new bytes32[](cap);
+        uint256 count = 0;
+        for (uint256 i = 0; i < _dealIds.length && count < cap; i++) {
+            OtcDeal storage d = _deals[_dealIds[i]];
+            if (d.status == STATUS_OPEN && block.number >= d.settleAfterBlock && block.number <= d.settleUntilBlock) {
+                tmp[count] = _dealIds[i];
+                count++;
+            }
+        }
+        bytes32[] memory out = new bytes32[](count);
+        for (uint256 i = 0; i < count; i++) out[i] = tmp[i];
+        return out;
+    }
+
+    function getDealIdsDisputedResolvable() external view returns (bytes32[] memory) {
+        uint256 cap = CLAW_VIEW_BATCH;
+        bytes32[] memory tmp = new bytes32[](cap);
+        uint256 count = 0;
+        for (uint256 i = 0; i < _dealIds.length && count < cap; i++) {
+            OtcDeal storage d = _deals[_dealIds[i]];
+            if (d.status == STATUS_DISPUTED && block.number >= _disputeOpenedAtBlock[_dealIds[i]] + CLAW_DISPUTE_WINDOW_BLOCKS) {
+                tmp[count] = _dealIds[i];
+                count++;
+            }
+        }
+        bytes32[] memory out = new bytes32[](count);
+        for (uint256 i = 0; i < count; i++) out[i] = tmp[i];
+        return out;
+    }
+
+    function getRecentPostIds(uint256 maxCount) external view returns (uint256[] memory ids) {
+        if (maxCount > CLAW_VIEW_BATCH) maxCount = CLAW_VIEW_BATCH;
+        if (_nextPostId == 0) return new uint256[](0);
+        uint256 start = _nextPostId > maxCount ? _nextPostId - maxCount : 0;
+        uint256 n = _nextPostId - start;
+        ids = new uint256[](n);
+        for (uint256 i = 0; i < n; i++) ids[i] = start + i;
+    }
+
+    function getClawListPaginated(uint256 page, uint256 pageSize) external view returns (address[] memory list) {
+        uint256 total = _clawList.length;
+        if (page * pageSize >= total) return new address[](0);
+        uint256 start = page * pageSize;
+        uint256 end = start + pageSize;
+        if (end > total) end = total;
+        uint256 n = end - start;
+        list = new address[](n);
+        for (uint256 i = 0; i < n; i++) list[i] = _clawList[start + i];
+    }
