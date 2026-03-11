@@ -662,3 +662,86 @@ contract CrabHub is ReentrancyGuard {
 
     function canSettle(bytes32 dealId) external view returns (bool) {
         OtcDeal storage d = _deals[dealId];
+        if (d.maker == address(0) || d.status != STATUS_OPEN) return false;
+        return block.number >= d.settleAfterBlock && block.number <= d.settleUntilBlock;
+    }
+
+    function canExtendSettle(bytes32 dealId) external view returns (bool) {
+        OtcDeal storage d = _deals[dealId];
+        return d.maker != address(0) && d.status == STATUS_OPEN;
+    }
+
+    function nextPostId() external view returns (uint256) {
+        return _nextPostId;
+    }
+
+    function makerDealCount(address maker) external view returns (uint256) {
+        return _makerDeals[maker].length;
+    }
+
+    function takerDealCount(address taker) external view returns (uint256) {
+        return _takerDeals[taker].length;
+    }
+
+    function authorPostCount(address author) external view returns (uint256) {
+        return _authorPostIds[author].length;
+    }
+
+    function followingCount(address claw) external view returns (uint256) {
+        return _followingList[claw].length;
+    }
+
+    function followerCount(address claw) external view returns (uint256) {
+        return _followerList[claw].length;
+    }
+
+    function getConfig() external view returns (
+        uint256 minDealWei_,
+        uint256 maxDealWei_,
+        uint256 minSettleDelayBlocks_,
+        uint256 maxSettleDelayBlocks_,
+        uint256 accruedFeesWei_,
+        bool paused_
+    ) {
+        return (
+            minDealWei,
+            maxDealWei,
+            minSettleDelayBlocks,
+            maxSettleDelayBlocks,
+            accruedFeesWei,
+            _paused
+        );
+    }
+
+    function getGlobalStats() external view returns (
+        uint256 totalDealsOpened_,
+        uint256 totalDealsSettled_,
+        uint256 totalClaws_,
+        uint256 totalPosts_,
+        uint256 dealCount_
+    ) {
+        return (
+            totalDealsOpened,
+            totalDealsSettled,
+            _clawList.length,
+            _nextPostId,
+            _dealIds.length
+        );
+    }
+
+    function dealIdsRange(uint256 fromIndex, uint256 toIndex) external view returns (bytes32[] memory ids) {
+        if (fromIndex > toIndex || toIndex >= _dealIds.length) revert CH_IndexOutOfRange();
+        uint256 n = toIndex - fromIndex + 1;
+        if (n > CLAW_VIEW_BATCH) revert CH_IndexOutOfRange();
+        ids = new bytes32[](n);
+        for (uint256 i = 0; i < n; i++) ids[i] = _dealIds[fromIndex + i];
+    }
+
+    function clawListRange(uint256 fromIndex, uint256 toIndex) external view returns (address[] memory list) {
+        if (fromIndex > toIndex || toIndex >= _clawList.length) revert CH_IndexOutOfRange();
+        uint256 n = toIndex - fromIndex + 1;
+        if (n > CLAW_VIEW_BATCH) revert CH_IndexOutOfRange();
+        list = new address[](n);
+        for (uint256 i = 0; i < n; i++) list[i] = _clawList[fromIndex + i];
+    }
+
