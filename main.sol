@@ -828,3 +828,86 @@ contract CrabHub is ReentrancyGuard {
         OtcDeal storage d = _deals[dealId];
         if (d.maker == address(0) || d.status != STATUS_OPEN) return 0;
         if (block.number >= d.settleUntilBlock) return 0;
+        if (block.number < d.settleAfterBlock) return d.settleAfterBlock - block.number;
+        return d.settleUntilBlock - block.number;
+    }
+
+    function getDealIdsPaginated(uint256 page, uint256 pageSize) external view returns (bytes32[] memory ids) {
+        uint256 total = _dealIds.length;
+        if (page * pageSize >= total) return new bytes32[](0);
+        uint256 start = page * pageSize;
+        uint256 end = start + pageSize;
+        if (end > total) end = total;
+        uint256 n = end - start;
+        ids = new bytes32[](n);
+        for (uint256 i = 0; i < n; i++) ids[i] = _dealIds[start + i];
+    }
+
+    function getOpenDealIds(uint256 maxReturn) external view returns (bytes32[] memory ids) {
+        uint256 count = 0;
+        for (uint256 i = 0; i < _dealIds.length && count < maxReturn && count <= CLAW_VIEW_BATCH; i++) {
+            if (_deals[_dealIds[i]].status == STATUS_OPEN) count++;
+        }
+        ids = new bytes32[](count);
+        uint256 j = 0;
+        for (uint256 i = 0; i < _dealIds.length && j < count; i++) {
+            if (_deals[_dealIds[i]].status == STATUS_OPEN) {
+                ids[j] = _dealIds[i];
+                j++;
+            }
+        }
+    }
+
+    function getDisputedDealIds(uint256 maxReturn) external view returns (bytes32[] memory ids) {
+        uint256 count = 0;
+        for (uint256 i = 0; i < _dealIds.length && count < maxReturn && count <= CLAW_VIEW_BATCH; i++) {
+            if (_deals[_dealIds[i]].status == STATUS_DISPUTED) count++;
+        }
+        ids = new bytes32[](count);
+        uint256 j = 0;
+        for (uint256 i = 0; i < _dealIds.length && j < count; i++) {
+            if (_deals[_dealIds[i]].status == STATUS_DISPUTED) {
+                ids[j] = _dealIds[i];
+                j++;
+            }
+        }
+    }
+
+    function getDealIdsByMakerPaginated(address maker, uint256 page, uint256 pageSize) external view returns (bytes32[] memory ids) {
+        bytes32[] storage arr = _makerDeals[maker];
+        uint256 total = arr.length;
+        if (page * pageSize >= total) return new bytes32[](0);
+        uint256 start = page * pageSize;
+        uint256 end = start + pageSize;
+        if (end > total) end = total;
+        uint256 n = end - start;
+        ids = new bytes32[](n);
+        for (uint256 i = 0; i < n; i++) ids[i] = arr[start + i];
+    }
+
+    function getDealIdsByTakerPaginated(address taker, uint256 page, uint256 pageSize) external view returns (bytes32[] memory ids) {
+        bytes32[] storage arr = _takerDeals[taker];
+        uint256 total = arr.length;
+        if (page * pageSize >= total) return new bytes32[](0);
+        uint256 start = page * pageSize;
+        uint256 end = start + pageSize;
+        if (end > total) end = total;
+        uint256 n = end - start;
+        ids = new bytes32[](n);
+        for (uint256 i = 0; i < n; i++) ids[i] = arr[start + i];
+    }
+
+    function getPostIdsByAuthorPaginated(address author, uint256 page, uint256 pageSize) external view returns (uint256[] memory ids) {
+        uint256[] storage arr = _authorPostIds[author];
+        uint256 total = arr.length;
+        if (page * pageSize >= total) return new uint256[](0);
+        uint256 start = page * pageSize;
+        uint256 end = start + pageSize;
+        if (end > total) end = total;
+        uint256 n = end - start;
+        ids = new uint256[](n);
+        for (uint256 i = 0; i < n; i++) ids[i] = arr[start + i];
+    }
+
+    function getFollowingPaginated(address claw, uint256 page, uint256 pageSize) external view returns (address[] memory list) {
+        address[] storage arr = _followingList[claw];
