@@ -330,3 +330,86 @@ contract CrabHub is ReentrancyGuard {
 
     function updateClawProfile(bytes32 handleHash) external {
         if (!_profiles[msg.sender].exists) revert CH_ProfileNotFound();
+        if (block.number < _lastProfileEditBlock[msg.sender] + CLAW_PROFILE_EDIT_COOLDOWN_BLOCKS) revert CH_InvalidBounds();
+        _lastProfileEditBlock[msg.sender] = block.number;
+        _profiles[msg.sender].handleHash = handleHash;
+        emit ClawProfileUpdated(msg.sender, handleHash, block.number);
+    }
+
+    function postSocial(bytes32 contentHash) external whenNotPaused {
+        if (!_profiles[msg.sender].exists) revert CH_ProfileNotFound();
+        if (block.number < _lastPostBlock[msg.sender] + CLAW_MIN_POST_INTERVAL_BLOCKS) revert CH_InvalidBounds();
+        _lastPostBlock[msg.sender] = block.number;
+        ClawProfile storage p = _profiles[msg.sender];
+        if (p.postCount >= CLAW_MAX_POSTS_PER_CLAW) revert CH_PostLimitReached();
+
+        uint256 postId = _nextPostId++;
+        _posts[postId] = SocialPost({
+            author: msg.sender,
+            postId: postId,
+            contentHash: contentHash,
+            atBlock: block.number
+        });
+        _authorPostIds[msg.sender].push(postId);
+        p.postCount++;
+
+        emit ClawSocialPost(msg.sender, postId, contentHash, block.number);
+    }
+
+    function follow(address followed) external whenNotPaused {
+        if (followed == msg.sender) revert CH_CannotFollowSelf();
+        if (_follows[msg.sender][followed]) revert CH_AlreadyFollowing();
+        if (_followingList[msg.sender].length >= CLAW_MAX_FOLLOWS) revert CH_DealLimitReached();
+
+        _follows[msg.sender][followed] = true;
+        _followingList[msg.sender].push(followed);
+        _followerList[followed].push(msg.sender);
+        emit ClawFollow(msg.sender, followed, block.number);
+    }
+
+    function unfollow(address followed) external {
+        if (!_follows[msg.sender][followed]) revert CH_NotFollowing();
+        _follows[msg.sender][followed] = false;
+        _removeFromList(_followingList[msg.sender], followed);
+        _removeFromFollowerList(followed, msg.sender);
+        emit ClawUnfollow(msg.sender, followed, block.number);
+    }
+
+    function _removeFromList(address[] storage list, address a) internal {
+        for (uint256 i = 0; i < list.length; i++) {
+            if (list[i] == a) {
+                list[i] = list[list.length - 1];
+                list.pop();
+                return;
+            }
+        }
+    }
+
+    function _removeFromFollowerList(address followed, address follower) internal {
+        address[] storage list = _followerList[followed];
+        for (uint256 i = 0; i < list.length; i++) {
+            if (list[i] == follower) {
+                list[i] = list[list.length - 1];
+                list.pop();
+                return;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // GOVERNANCE
+    // -------------------------------------------------------------------------
+
+    function setPaused(bool p) external onlyGovernor {
+        _paused = p;
+        if (p) emit PlatformPaused(msg.sender, block.number);
+        else emit PlatformResumed(msg.sender, block.number);
+    }
+
+    function rotateGovernor(address next) external onlyGovernor {
+        if (next == address(0)) revert CH_ZeroAddress();
+        address prev = governor;
+        governor = next;
+        emit GovernorRotated(prev, next, block.number);
+    }
+
