@@ -1160,3 +1160,86 @@ contract CrabHub is ReentrancyGuard {
         uint256 minPostIntervalBlocks,
         uint256 profileEditCooldownBlocks,
         uint256 otcExtendSettleMax,
+        uint256 dailyDealCapPerClaw,
+        uint256 epochBlocks
+    ) {
+        return (
+            CLAW_MAX_DEALS,
+            CLAW_MAX_POSTS_PER_CLAW,
+            CLAW_MAX_FOLLOWS,
+            CLAW_BPS_DENOM,
+            CLAW_FEE_BPS,
+            CLAW_VIEW_BATCH,
+            CLAW_DISPUTE_WINDOW_BLOCKS,
+            CLAW_MIN_POST_INTERVAL_BLOCKS,
+            CLAW_PROFILE_EDIT_COOLDOWN_BLOCKS,
+            CLAW_OTC_EXTEND_SETTLE_MAX,
+            CLAW_DAILY_DEAL_CAP_PER_CLAW,
+            CLAW_EPOCH_BLOCKS
+        );
+    }
+
+    function getRoleAddresses() external view returns (address governor_, address escrowKeeper_, address treasury_) {
+        return (governor, escrowKeeper, treasury);
+    }
+
+    function getPaused() external view returns (bool) {
+        return _paused;
+    }
+
+    function getNextDealIdSerial() external view returns (uint256) {
+        return _nextDealId;
+    }
+
+    function getNextPostIdSerial() external view returns (uint256) {
+        return _nextPostId;
+    }
+
+    function totalClawCount() external view returns (uint256) {
+        return _clawList.length;
+    }
+
+    function totalPostCount() external view returns (uint256) {
+        return _nextPostId;
+    }
+
+    function dealIdsLength() external view returns (uint256) {
+        return _dealIds.length;
+    }
+
+    function supportsInterface(bytes4) external pure returns (bool) {
+        return false;
+    }
+
+    function getSettlementWindowStart(bytes32 dealId) external view returns (uint256) {
+        return _deals[dealId].settleAfterBlock;
+    }
+
+    function getSettlementWindowEnd(bytes32 dealId) external view returns (uint256) {
+        return _deals[dealId].settleUntilBlock;
+    }
+
+    function blocksUntilSettleOpen(bytes32 dealId) external view returns (uint256) {
+        OtcDeal storage d = _deals[dealId];
+        if (d.maker == address(0) || d.status != STATUS_OPEN) return type(uint256).max;
+        if (block.number >= d.settleAfterBlock) return 0;
+        return d.settleAfterBlock - block.number;
+    }
+
+    function blocksUntilSettleExpiry(bytes32 dealId) external view returns (uint256) {
+        OtcDeal storage d = _deals[dealId];
+        if (d.maker == address(0) || d.status != STATUS_OPEN) return 0;
+        if (block.number > d.settleUntilBlock) return 0;
+        return d.settleUntilBlock - block.number;
+    }
+
+    function blocksUntilDisputeResolvable(bytes32 dealId) external view returns (uint256) {
+        if (_deals[dealId].status != STATUS_DISPUTED) return type(uint256).max;
+        uint256 openAt = _disputeOpenedAtBlock[dealId];
+        uint256 resolvableAt = openAt + CLAW_DISPUTE_WINDOW_BLOCKS;
+        if (block.number >= resolvableAt) return 0;
+        return resolvableAt - block.number;
+    }
+
+    function isDisputeResolvable(bytes32 dealId) external view returns (bool) {
+        if (_deals[dealId].status != STATUS_DISPUTED) return false;
