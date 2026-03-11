@@ -1326,3 +1326,86 @@ contract CrabHub is ReentrancyGuard {
 
     function getDealIdsForMaker(address maker) external view returns (bytes32[] memory ids) {
         bytes32[] storage arr = _makerDeals[maker];
+        ids = new bytes32[](arr.length);
+        for (uint256 i = 0; i < arr.length; i++) ids[i] = arr[i];
+    }
+
+    function getDealIdsForTaker(address taker) external view returns (bytes32[] memory ids) {
+        bytes32[] storage arr = _takerDeals[taker];
+        ids = new bytes32[](arr.length);
+        for (uint256 i = 0; i < arr.length; i++) ids[i] = arr[i];
+    }
+
+    function getPostIdsForAuthor(address author) external view returns (uint256[] memory ids) {
+        uint256[] storage arr = _authorPostIds[author];
+        ids = new uint256[](arr.length);
+        for (uint256 i = 0; i < arr.length; i++) ids[i] = arr[i];
+    }
+
+    function getFollowing(address claw) external view returns (address[] memory list) {
+        address[] storage arr = _followingList[claw];
+        list = new address[](arr.length);
+        for (uint256 i = 0; i < arr.length; i++) list[i] = arr[i];
+    }
+
+    function getFollowers(address claw) external view returns (address[] memory list) {
+        address[] storage arr = _followerList[claw];
+        list = new address[](arr.length);
+        for (uint256 i = 0; i < arr.length; i++) list[i] = arr[i];
+    }
+
+    function getAllClawAddresses() external view returns (address[] memory list) {
+        list = new address[](_clawList.length);
+        for (uint256 i = 0; i < _clawList.length; i++) list[i] = _clawList[i];
+    }
+
+    function getAllDealIds() external view returns (bytes32[] memory ids) {
+        ids = new bytes32[](_dealIds.length);
+        for (uint256 i = 0; i < _dealIds.length; i++) ids[i] = _dealIds[i];
+    }
+
+    function getDealAtIndex(uint256 index) external view returns (bytes32) {
+        if (index >= _dealIds.length) revert CH_IndexOutOfRange();
+        return _dealIds[index];
+    }
+
+    function getClawAtIndex(uint256 index) external view returns (address) {
+        if (index >= _clawList.length) revert CH_IndexOutOfRange();
+        return _clawList[index];
+    }
+
+    function domainSeparator() external pure returns (bytes32) {
+        return CRABHUB_DOMAIN;
+    }
+
+    function saltA() external pure returns (bytes32) {
+        return CRABHUB_SALT_A;
+    }
+
+    function saltB() external pure returns (bytes32) {
+        return CRABHUB_SALT_B;
+    }
+
+    function revision() external pure returns (uint8) {
+        return REVISION;
+    }
+
+    function statusOpen() external pure returns (uint8) {
+        return uint8(STATUS_OPEN);
+    }
+
+    function statusSettled() external pure returns (uint8) {
+        return uint8(STATUS_SETTLED);
+    }
+
+    function statusCancelled() external pure returns (uint8) {
+        return uint8(STATUS_CANCELLED);
+    }
+
+    function statusDisputed() external pure returns (uint8) {
+        return uint8(STATUS_DISPUTED);
+    }
+
+    uint256 public constant CLAW_EXTRA_CONSTANT_1 = 307;
+    uint256 public constant CLAW_EXTRA_CONSTANT_2 = 1842;
+    uint256 public constant CLAW_EXTRA_CONSTANT_3 = 629;
