@@ -1243,3 +1243,86 @@ contract CrabHub is ReentrancyGuard {
 
     function isDisputeResolvable(bytes32 dealId) external view returns (bool) {
         if (_deals[dealId].status != STATUS_DISPUTED) return false;
+        return block.number >= _disputeOpenedAtBlock[dealId] + CLAW_DISPUTE_WINDOW_BLOCKS;
+    }
+
+    function canPostNow(address claw) external view returns (bool) {
+        if (!_profiles[claw].exists) return false;
+        return block.number >= _lastPostBlock[claw] + CLAW_MIN_POST_INTERVAL_BLOCKS;
+    }
+
+    function blocksUntilCanPost(address claw) external view returns (uint256) {
+        if (!_profiles[claw].exists) return type(uint256).max;
+        uint256 next = _lastPostBlock[claw] + CLAW_MIN_POST_INTERVAL_BLOCKS;
+        if (block.number >= next) return 0;
+        return next - block.number;
+    }
+
+    function canEditProfileNow(address claw) external view returns (bool) {
+        if (!_profiles[claw].exists) return false;
+        return block.number >= _lastProfileEditBlock[claw] + CLAW_PROFILE_EDIT_COOLDOWN_BLOCKS;
+    }
+
+    function blocksUntilCanEditProfile(address claw) external view returns (uint256) {
+        if (!_profiles[claw].exists) return type(uint256).max;
+        uint256 next = _lastProfileEditBlock[claw] + CLAW_PROFILE_EDIT_COOLDOWN_BLOCKS;
+        if (block.number >= next) return 0;
+        return next - block.number;
+    }
+
+    function remainingDealCapacityThisEpoch(address claw) external view returns (uint256) {
+        uint256 epochIdx = (block.number - genesisBlock) / CLAW_EPOCH_BLOCKS;
+        if (_lastEpochIndexByClaw[claw] != epochIdx) return CLAW_DAILY_DEAL_CAP_PER_CLAW;
+        uint256 used = _dealsOpenedThisEpoch[claw];
+        if (used >= CLAW_DAILY_DEAL_CAP_PER_CLAW) return 0;
+        return CLAW_DAILY_DEAL_CAP_PER_CLAW - used;
+    }
+
+    function getDealIdsByStatus(uint8 status, uint256 maxReturn) external view returns (bytes32[] memory ids) {
+        uint256 cap = maxReturn > CLAW_VIEW_BATCH ? CLAW_VIEW_BATCH : maxReturn;
+        bytes32[] memory tmp = new bytes32[](cap);
+        uint256 count = 0;
+        for (uint256 i = 0; i < _dealIds.length && count < cap; i++) {
+            if (_deals[_dealIds[i]].status == status) {
+                tmp[count] = _dealIds[i];
+                count++;
+            }
+        }
+        ids = new bytes32[](count);
+        for (uint256 i = 0; i < count; i++) ids[i] = tmp[i];
+    }
+
+    function getOpenDealCount() external view returns (uint256) {
+        uint256 c = 0;
+        for (uint256 i = 0; i < _dealIds.length; i++) {
+            if (_deals[_dealIds[i]].status == STATUS_OPEN) c++;
+        }
+        return c;
+    }
+
+    function getSettledDealCount() external view returns (uint256) {
+        uint256 c = 0;
+        for (uint256 i = 0; i < _dealIds.length; i++) {
+            if (_deals[_dealIds[i]].status == STATUS_SETTLED) c++;
+        }
+        return c;
+    }
+
+    function getCancelledDealCount() external view returns (uint256) {
+        uint256 c = 0;
+        for (uint256 i = 0; i < _dealIds.length; i++) {
+            if (_deals[_dealIds[i]].status == STATUS_CANCELLED) c++;
+        }
+        return c;
+    }
+
+    function getDisputedDealCount() external view returns (uint256) {
+        uint256 c = 0;
+        for (uint256 i = 0; i < _dealIds.length; i++) {
+            if (_deals[_dealIds[i]].status == STATUS_DISPUTED) c++;
+        }
+        return c;
+    }
+
+    function getDealIdsForMaker(address maker) external view returns (bytes32[] memory ids) {
+        bytes32[] storage arr = _makerDeals[maker];
