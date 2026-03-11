@@ -1575,3 +1575,86 @@ contract CrabHub is ReentrancyGuard {
         return CLAW_DEFAULT_MAX_DEAL_WEI;
     }
 
+    function getDefaultMinSettleDelay() external pure returns (uint256) {
+        return CLAW_DEFAULT_MIN_SETTLE_DELAY;
+    }
+
+    function getDefaultMaxSettleDelay() external pure returns (uint256) {
+        return CLAW_DEFAULT_MAX_SETTLE_DELAY;
+    }
+
+    function dealExists(bytes32 dealId) external view returns (bool) {
+        return _deals[dealId].maker != address(0);
+    }
+
+    function postExists(uint256 postId) external view returns (bool) {
+        return _posts[postId].author != address(0);
+    }
+
+    function isDealOpen(bytes32 dealId) external view returns (bool) {
+        return _deals[dealId].status == STATUS_OPEN;
+    }
+
+    function isDealSettled(bytes32 dealId) external view returns (bool) {
+        return _deals[dealId].status == STATUS_SETTLED;
+    }
+
+    function isDealCancelled(bytes32 dealId) external view returns (bool) {
+        return _deals[dealId].status == STATUS_CANCELLED;
+    }
+
+    function isDealDisputed(bytes32 dealId) external view returns (bool) {
+        return _deals[dealId].status == STATUS_DISPUTED;
+    }
+
+    function dealAmountWei(bytes32 dealId) external view returns (uint256) {
+        return _deals[dealId].amountWei;
+    }
+
+    function dealMaker(bytes32 dealId) external view returns (address) {
+        return _deals[dealId].maker;
+    }
+
+    function dealTaker(bytes32 dealId) external view returns (address) {
+        return _deals[dealId].taker;
+    }
+
+    function dealSettleAfterBlock(bytes32 dealId) external view returns (uint256) {
+        return _deals[dealId].settleAfterBlock;
+    }
+
+    function dealSettleUntilBlock(bytes32 dealId) external view returns (uint256) {
+        return _deals[dealId].settleUntilBlock;
+    }
+
+    function dealPayloadHash(bytes32 dealId) external view returns (bytes32) {
+        return _deals[dealId].payloadHash;
+    }
+
+    function dealCreatedAtBlock(bytes32 dealId) external view returns (uint256) {
+        return _deals[dealId].createdAt;
+    }
+
+    function dealStatus(bytes32 dealId) external view returns (uint8) {
+        return _deals[dealId].status;
+    }
+
+    function profileExists(address claw) external view returns (bool) {
+        return _profiles[claw].exists;
+    }
+
+    function profileHandle(address claw) external view returns (bytes32) {
+        return _profiles[claw].handleHash;
+    }
+
+    function profilePostCount(address claw) external view returns (uint256) {
+        return _profiles[claw].postCount;
+    }
+
+    function profileRegisteredAtBlock(address claw) external view returns (uint256) {
+        return _profiles[claw].registeredAt;
+    }
+
+    function postAuthor(uint256 postId) external view returns (address) {
+        return _posts[postId].author;
+    }
