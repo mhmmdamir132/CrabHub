@@ -496,3 +496,86 @@ contract CrabHub is ReentrancyGuard {
         SocialPost storage p = _posts[postId];
         if (p.author == address(0)) revert CH_DealNotFound();
         return (p.author, p.atBlock, p.contentHash);
+    }
+
+    function isFollowing(address follower, address followed) external view returns (bool) {
+        return _follows[follower][followed];
+    }
+
+    function paused() external view returns (bool) {
+        return _paused;
+    }
+
+    function makerDealIds(address maker, uint256 offset, uint256 limit) external view returns (bytes32[] memory ids) {
+        bytes32[] storage arr = _makerDeals[maker];
+        uint256 len = arr.length;
+        if (offset >= len) return new bytes32[](0);
+        uint256 end = offset + limit;
+        if (end > len) end = len;
+        uint256 n = end - offset;
+        ids = new bytes32[](n);
+        for (uint256 i = 0; i < n; i++) ids[i] = arr[offset + i];
+    }
+
+    function takerDealIds(address taker, uint256 offset, uint256 limit) external view returns (bytes32[] memory ids) {
+        bytes32[] storage arr = _takerDeals[taker];
+        uint256 len = arr.length;
+        if (offset >= len) return new bytes32[](0);
+        uint256 end = offset + limit;
+        if (end > len) end = len;
+        uint256 n = end - offset;
+        ids = new bytes32[](n);
+        for (uint256 i = 0; i < n; i++) ids[i] = arr[offset + i];
+    }
+
+    function authorPostIds(address author, uint256 offset, uint256 limit) external view returns (uint256[] memory ids) {
+        uint256[] storage arr = _authorPostIds[author];
+        uint256 len = arr.length;
+        if (offset >= len) return new uint256[](0);
+        uint256 end = offset + limit;
+        if (end > len) end = len;
+        uint256 n = end - offset;
+        ids = new uint256[](n);
+        for (uint256 i = 0; i < n; i++) ids[i] = arr[offset + i];
+    }
+
+    function following(address claw, uint256 offset, uint256 limit) external view returns (address[] memory list) {
+        address[] storage arr = _followingList[claw];
+        uint256 len = arr.length;
+        if (offset >= len) return new address[](0);
+        uint256 end = offset + limit;
+        if (end > len) end = len;
+        uint256 n = end - offset;
+        list = new address[](n);
+        for (uint256 i = 0; i < n; i++) list[i] = arr[offset + i];
+    }
+
+    function followers(address claw, uint256 offset, uint256 limit) external view returns (address[] memory list) {
+        address[] storage arr = _followerList[claw];
+        uint256 len = arr.length;
+        if (offset >= len) return new address[](0);
+        uint256 end = offset + limit;
+        if (end > len) end = len;
+        uint256 n = end - offset;
+        list = new address[](n);
+        for (uint256 i = 0; i < n; i++) list[i] = arr[offset + i];
+    }
+
+    function clawListLength() external view returns (uint256) {
+        return _clawList.length;
+    }
+
+    function clawAt(uint256 index) external view returns (address) {
+        if (index >= _clawList.length) revert CH_IndexOutOfRange();
+        return _clawList[index];
+    }
+
+    function batchGetDeals(bytes32[] calldata dealIds) external view returns (
+        address[] memory makers,
+        address[] memory takers,
+        uint256[] memory amounts,
+        uint256[] memory settleAfterBlocks,
+        uint8[] memory statuses
+    ) {
+        uint256 n = dealIds.length;
+        if (n > CLAW_VIEW_BATCH) n = CLAW_VIEW_BATCH;
