@@ -1658,3 +1658,69 @@ contract CrabHub is ReentrancyGuard {
     function postAuthor(uint256 postId) external view returns (address) {
         return _posts[postId].author;
     }
+
+    function postContentHash(uint256 postId) external view returns (bytes32) {
+        return _posts[postId].contentHash;
+    }
+
+    function postBlockNumber(uint256 postId) external view returns (uint256) {
+        return _posts[postId].atBlock;
+    }
+
+    function followingCountFor(address claw) external view returns (uint256) {
+        return _followingList[claw].length;
+    }
+
+    function followerCountFor(address claw) external view returns (uint256) {
+        return _followerList[claw].length;
+    }
+
+    function makerDealCountFor(address maker) external view returns (uint256) {
+        return _makerDeals[maker].length;
+    }
+
+    function takerDealCountFor(address taker) external view returns (uint256) {
+        return _takerDeals[taker].length;
+    }
+
+    function authorPostCountFor(address author) external view returns (uint256) {
+        return _authorPostIds[author].length;
+    }
+
+    function currentEpochIndex() external view returns (uint256) {
+        return (block.number - genesisBlock) / CLAW_EPOCH_BLOCKS;
+    }
+
+    function epochDealCountForClaw(address claw) external view returns (uint256) {
+        uint256 epochIdx = (block.number - genesisBlock) / CLAW_EPOCH_BLOCKS;
+        if (_lastEpochIndexByClaw[claw] != epochIdx) return 0;
+        return _dealsOpenedThisEpoch[claw];
+    }
+
+    function lastPostBlockFor(address claw) external view returns (uint256) {
+        return _lastPostBlock[claw];
+    }
+
+    function lastProfileEditBlockFor(address claw) external view returns (uint256) {
+        return _lastProfileEditBlock[claw];
+    }
+
+    function totalDealCount() external view returns (uint256) { return _dealIds.length; }
+    function totalClawCountView() external view returns (uint256) { return _clawList.length; }
+    function totalPostCountView() external view returns (uint256) { return _nextPostId; }
+    function nextDealIdValue() external view returns (uint256) { return _nextDealId; }
+    function nextPostIdValue() external view returns (uint256) { return _nextPostId; }
+    function pausedStatus() external view returns (bool) { return _paused; }
+    function treasuryAddress() external view returns (address) { return treasury; }
+    function governorAddress() external view returns (address) { return governor; }
+    function escrowKeeperAddress() external view returns (address) { return escrowKeeper; }
+    function genesisBlockNumber() external view returns (uint256) { return genesisBlock; }
+
+    function weiPerEther() external pure returns (uint256) { return 1e18; }
+    function defaultFeeBps() external pure returns (uint256) { return CLAW_FEE_BPS; }
+    function defaultBpsDenom() external pure returns (uint256) { return CLAW_BPS_DENOM; }
+
+    receive() external payable {
+        accruedFeesWei += msg.value;
+    }
+}
